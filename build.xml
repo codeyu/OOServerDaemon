@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<project name="OpenOffice Server Daemon" default="all">
+	<!-- 
+	==================================================== 
+	 PROPERTIES
+	==================================================== 
+	-->
+	<property name="logger"						value="INFO" />
+	<property name="debug"						value="false" />
+	
+	<property environment="env"/>
+	<!-- distribution directory -->
+	<property name="dist.dir" 					value="dist" />
+	<!-- java sources directory -->
+	<property name="src.dir" 					value="src" />
+	<property name="lib.dir" 					value="lib" />
+	<!-- classes directory -->
+	<property name="bin.dir" 					value="bin" />
+	<property name="web.dir"					value="web" />
+	<!-- javadoc directory -->
+	<property name="javadoc.dir" 				value="javadoc" />
+	<property name="docs.dir"					value="docs" />
+	<!-- configuration directory -->
+	<property name="config.dir" 				value="config" />
+	<property name="scripts.dir"				value="scripts" />
+	<property name="build.properties.file" 		value="${config.dir}/build.properties" />
+	<property name="daemon.properties.file" 	value="${config.dir}/daemon.properties" />
+		
+	<property file="${build.properties.file}" />
+	<property file="${daemon.properties.file}" />
+	
+	<property name="meta-inf.dir" 				value="${dist.dir}/META-INF" />
+	<property name="daemon.jar" 				value="OOServerDaemon.jar" />
+	<property name="daemon.dist"				value="OOServerDaemon.zip" />
+	<property name="daemon.config" 				value="config/oodaemon-config.xml" />
+	<property name="daemon.java.library.path" 	value="${openoffice.path}/program${path.separator}dist/win32" />
+	
+	<!-- 
+	==================================================== 
+	 PATH
+	==================================================== 
+	-->
+	<path id="classpath">
+		<fileset dir="${lib.dir}">
+			<include name="*.jar" />
+		</fileset>
+		<fileset dir="${dist.dir}">
+			<include name="${daemon.jar}" />
+		</fileset>
+		<!--<pathelement location="${bin.dir}"/>-->
+	</path>
+	<!-- 
+	==================================================== 
+	 VALIDATE PROPERTIES
+	==================================================== 
+	-->
+	<target name="validate.for.compiling">
+		<condition property="daemon.properties.file.exists">
+			<and>
+				<isset property="daemon.properties.file"/>
+				<available file="${daemon.properties.file}"/>
+			</and>
+		</condition>
+	</target>
+	<target name="validate.for.running">
+		<condition property="openoffice.path.exists">
+			<and>
+				<isset property="openoffice.path"/>
+	    		<available file="${openoffice.path}/program" type="dir"/>	
+			</and>
+	    </condition>
+		<condition property="dist.win32.path.exists">
+			<available file="dist/win32" type="dir"/>
+		</condition>
+	</target>
+	
+	<!-- OK TO COMPILE and errors -->
+	<target name="ok.to.compile"
+		depends="validate.for.compiling, check.daemon.properties.file" />
+	<target name="check.daemon.properties.file" unless="daemon.properties.file.exists">
+		<echo message="ERROR VALIDATING PROPERTIES : ${daemon.properties.file} does not exist"/>
+		<fail/>
+	</target>
+	
+	<!-- OK TO RUN and errors -->
+	<target name="ok.to.run" 
+		depends="validate.for.running, check.openoffice.path, check.dist.win32.path"/>
+	<target name="check.openoffice.path" unless="openoffice.path.exists">
+		<echo message="ERROR VALIDATING PROPERTIES : path does not exist => ${openoffice.path}/program"/>
+		<fail/>
+	</target>
+	<target name="check.dist.win32.path" unless="dist.win32.path.exists">
+		<echo message="ERROR VALIDATING PROPERTIES : path does not exist => dist/win32"/>
+		<fail/>
+	</target>
+	<!--  
+	==================================================== 
+	 DATE
+	==================================================== 
+	-->
+	<tstamp>
+		<format property="date" pattern="MM/dd/yyyy" locale="en"/>
+	</tstamp>
+		
+	<tstamp>
+		<format property="date.full" pattern="MM/dd/yyyy HH:mm:ss" locale="en"/>
+	</tstamp>
+	<!--  
+	==================================================== 
+	 CLEAN
+	==================================================== 
+	-->
+	<target name="clean">
+		<echo message="Cleaning ..." />
+		<delete dir="${meta-inf.dir}" />
+		<delete file="${dist.dir}/${daemon.jar}" />
+		<delete file="${dist.dir}/${daemon.dist}" />
+		<delete dir="${bin.dir}" />
+		<delete dir="${javadoc.dir}" />
+	</target>
+	<!-- 
+	==================================================== 
+	 PREPARE
+	==================================================== 
+	-->
+	<target name="prepare">
+		<echo message="Preparing ..." />
+		<mkdir dir="${bin.dir}"/>
+	</target>
+	<!-- 
+	==================================================== 
+	 COMPILE
+	==================================================== 
+	-->
+	<target name="compile" depends="prepare, ok.to.compile" description="compile java sources">
+		<echo message="Compiling ..." />
+		<javac debug="${build.debug}" destdir="${bin.dir}" encoding="utf-8">
+			<src path="${src.dir}"/>
+			<classpath>
+				<fileset dir="${lib.dir}" includes="*.jar" />
+			</classpath>
+		</javac>
+	</target>
+	<!-- 
+	==================================================== 
+	 RUN
+	==================================================== 
+	-->
+	<target name="run" depends="jar, ok.to.run" description="Runs daemon">
+		<java 
+			classname="com.anwrt.ooserver.daemon.Daemon"
+			dir="${basedir}"
+			fork="true"
+			>
+			<jvmarg value="-Djava.library.path=${daemon.java.library.path}"/>
+			<arg value="-config" />
+			<arg value="${daemon.config}" />
+			<arg value="-logger" />
+			<arg value="${daemon.logger}" />
+			<classpath refid="classpath" />
+		</java>
+	</target>
+	<!-- 
+	==================================================== 
+	 STATUS
+	==================================================== 
+	-->
+	<target name="status" depends="jar, ok.to.run" description="admin : get status of a running daemon">
+		<java 
+			classname="com.anwrt.ooserver.daemon.Daemon"
+			dir="${basedir}"
+			fork="true"
+			>
+			<jvmarg value="-Djava.library.path=${daemon.java.library.path}"/>
+			<arg value="-config" />
+			<arg value="${daemon.config}" />
+			<arg value="-admin" />
+			<arg value="status" />
+			<arg value="-logger" />
+			<arg value="${daemon.logger}" />
+			<classpath refid="classpath" />
+
+		</java>
+	</target>
+	<!-- 
+	==================================================== 
+	 STOP
+	==================================================== 
+	-->
+	<target name="stop" depends="jar, ok.to.run" description="admin : stops a current running daemon">
+		<java 
+			classname="com.anwrt.ooserver.daemon.Daemon"
+			dir="${basedir}"
+			fork="true"
+			>
+			<jvmarg value="-Djava.library.path=${daemon.java.library.path}"/>
+			<arg value="-config" />
+			<arg value="${daemon.config}" />
+			<arg value="-admin" />
+			<arg value="stop" />
+			<arg value="-logger" />
+			<arg value="${daemon.logger}" />
+			<classpath refid="classpath" />
+
+		</java>
+	</target>
+	<!-- 
+	==================================================== 
+	 VERSION
+	==================================================== 
+	-->
+	<target name="version" depends="jar, ok.to.run" description="ask for current daemon version">
+		<echo message="version declared to ant : ${version}" />
+		<java
+			classname="com.anwrt.ooserver.daemon.Daemon"
+			>
+			<arg value="--version" />
+			<classpath refid="classpath" />
+		</java>
+	</target>
+	<!-- 
+	==================================================== 
+	 HELP
+	==================================================== 
+	-->
+	<target name="help" depends="jar, ok.to.run" description="ask for daemon help">
+		<java
+			classname="com.anwrt.ooserver.daemon.Daemon"
+			>
+			<arg value="--help" />
+			<classpath refid="classpath" />
+		</java>	
+	</target>
+	<!-- 
+	==================================================== 
+	 JAR
+	==================================================== 
+	-->
+	<target name="jar" depends="compile" description="Creates ${dist.dir}/${daemon.jar}">
+		<echo message="Creating jar ..." />
+		<mkdir dir="${meta-inf.dir}"/>
+		<manifest file="${meta-inf.dir}/MANIFEST.MF">
+	      	<section name="OpenOffice Server Daemon informations">
+			 	<attribute name="Title" value="OpenOffice Server Daemon"/>
+		  	 	<attribute name="Version" value="${version}"/>
+		  	 	<attribute name="Date" value="${date.full}"/>
+	      	</section>
+		</manifest>
+		<jar 
+			jarfile="${dist.dir}/${daemon.jar}" 
+			basedir="${bin.dir}" 
+			manifest="${meta-inf.dir}/MANIFEST.MF"/>
+	</target>
+	<!-- 
+	==================================================== 
+	 JAVADOC
+	==================================================== 
+	-->
+	<target name="javadoc" depends="prepare" unless="no-doc">
+		<echo message="Making javadoc ..." />
+		<mkdir dir="${javadoc.dir}"/>
+
+		<javadoc destdir="${javadoc.dir}"
+			sourcepath="${src.dir}"
+			windowtitle="OpenOffice Server Daemon ${version}"
+			doctitle="OpenOffice Server Daemon ${version}"
+	        author="true"
+	       	version="true"
+	       	use="false"
+			additionalparam="-quiet">
+			<classpath refid="classpath" />
+			<packageset dir="${src.dir}" defaultexcludes="true">
+				<include name="com/anwrt/ooserver/daemon/**"/>
+			</packageset>
+		</javadoc>
+	</target>
+	<!-- 
+	==================================================== 
+	 DIST
+	==================================================== 
+	-->
+	<target name="dist" depends="jar" description="distribution files (jar, zip, dll, ...)">
+		<echo message="Creating distribution package ..."/>
+		<mkdir dir="${dist.dir}/tmp"/>
+		<mkdir dir="${dist.dir}/tmp/config"/>
+		<mkdir dir="${dist.dir}/tmp/scripts"/>
+		<copy todir="${dist.dir}/tmp/config">
+			<fileset dir="${config.dir}/examples" includes="*"/>
+		</copy>
+		<copy todir="${dist.dir}/tmp/scripts">
+			<fileset dir="${scripts.dir}/examples" includes="*"/>
+		</copy>
+		<zip destfile="${dist.dir}/${daemon.dist}"
+		       	basedir="${basedir}"
+				excludes="**/CVS/**, **/env.*, **/examples/**"
+				includes="${src.dir}/**, ${lib.dir}/**,
+				${scripts.dir}/*, ${docs.dir}/**.jpg,
+				${dist.dir}/**/**.jar, ${dist.dir}/**/**.dll, build.xml, 
+				${config.dir}/daemon.properties,
+				license.txt, README.html, FAQ.html">
+			<fileset dir="${dist.dir}/tmp" includes="**/**"/>
+		</zip>
+		<delete dir="${dist.dir}/tmp"/>
+	</target>
+	<!-- 
+	==================================================== 
+	 WEB
+	==================================================== 
+	-->
+	<target name="web" description="Prepare project's sourceforge website">
+		<copy todir="${web.dir}">
+			<fileset dir="${basedir}">
+				<include name="README.html"/>
+				<include name="FAQ.html"/>
+				<include name="docs/generalDiagram.jpg"/>
+			</fileset>
+		</copy>
+	</target>
+	<!-- 
+	==================================================== 
+	 ALL
+	==================================================== 
+	-->
+	<target name="all" depends="jar, javadoc"/>
+</project>

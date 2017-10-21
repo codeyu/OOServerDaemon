@@ -1,0 +1,56 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd">
+
+<html>
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+		<title>Open Office Server Daemon FAQ</title>
+		<link rel="shortcut icon" href="http://www.openoffice.org/favicon.ico" />
+		<meta name="description" content="Open Office Server Daemon written in java"/>
+		<meta name="keywords" content="open office, OOo, oo, server, daemon, java"/>
+		<style type="text/css">
+			body
+			{
+				font-weight : bold;
+			}
+			h1
+			{
+				text-align: center;
+				color : #0088AA;
+				font-family: Verdana;
+			}
+			h2
+			{
+				color : #0088AA;
+				font-family: Verdana;
+				font-size:16px;
+				font-weight:bold;
+			}
+			h3
+			{
+				color : #0088AA;
+			}
+			h4
+			{
+				color : #0088AA;
+			}
+			a
+			{
+				text-decoration : none;
+				color : #AAAAAA;
+			}
+		</style>
+	</head>
+<body>
+<br/>
+<h1>The Open Office Server Daemon FAQ</h1>
+<br/>
+<h2>I'm running JUnit Tests with Eclipse, and when I kill them, the daemon is not notified</h2>
+It seems that the eclipse is not releasing everything when proceeding this way. Try to take it into account and to test
+other ways (tests without JUnit, or killing JUnit another way). 
+<h2>I have problems when trying to run daemon after running once with ant run</h2>
+It is important to kill the daemon using ant stop when using ant run. When you launch ant run,
+ it forks a new jvm with soffice as a child of this jvm. When you kill the ant process, the daemon jvm is still
+ alive. You perhaps tried to kill all open office processes, but this daemon jvm will still be running behind.
+
+</body>
+</html>

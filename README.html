@@ -1,0 +1,293 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd">
+
+<html>
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+		<title>Open Office Server Daemon README</title>
+		<link rel="shortcut icon" href="http://www.openoffice.org/favicon.ico" />
+		<meta name="description" content="Open Office Server Daemon written in java"/>
+		<meta name="keywords" content="open office, OOo, oo, server, daemon, java"/>
+		<style type="text/css"> 
+			body
+			{
+				font-weight : bold;
+			}
+			h1
+			{
+				text-align: center;
+				color : #0088AA;
+				font-family: Verdana;
+			}
+			h2
+			{
+				color : #0088AA;
+				font-family: Verdana;
+			}
+			h3
+			{
+				color : #0088AA;
+			}
+			h4
+			{
+				color : #0088AA;
+			}
+			a
+			{
+				text-decoration : none;
+				color : #AAAAAA;
+			}
+		</style>
+	</head>
+<body>
+<br/>
+<h1>The Open Office Server Daemon</h1>
+<br/>
+<h2>The daemon</h2>
+<p>
+The daemon is based on the oood daemon written in python by 
+<a href="mailto:JoergBudi@gmx.de">Joerg Budischewski</a> that you can find at 
+<a href="http://udk.openoffice.org/python/oood/">OpenOffice.org</a>. The current daemon is written in Java. A big part of this documentation is
+also taken from oood.
+</p>
+This daemon controls a pool of 'anonymous' office instances (workers).
+The workers can be used as backend for java/python/C++ batch
+processes for document conversion, mail merges, etc. . You don't need to rewrite your current scripts,
+a client connects to a daemon-controlled office just as if would connect to a normal office. 
+
+The daemon ensures, that only one client at a time is connected to one openoffice instance. Workers
+get restarted after a certain amount of uses or after office crashes.
+
+A client can connect to a daemon as if it would connect to a normal 'non-daemoned' Open office server,
+so you don't need to adapt your code/scripts.<br/>
+<br/>
+<center><img src="docs/generalDiagram.jpg" alt="'How it works' diagram" /></center><br/>
+
+<h3>Why a daemon ?</h3>
+<p>For various reasons : 
+<ul>
+	<li><i>OpenOffice does not support multithreading (officially)</i>, it could work in some cases, but it's really unstable.<br/>
+	If you use only one app dealing with multiple threads, you would use your own queue to handle it. But otherwise, you have
+	no real solution.
+	</li>
+	<li><i>Memory leaks</i> : Open office has various memory leaks that create heavy memory usage very rapidly (and particularly when
+	dealing with OLE objects). The daemon restarts automatically server instances after it has been used many times.</li>
+	<li><i>Lost threads</i> : Some server users have complained about OpenOffice lost threads (increasing the number of running threads), 
+	I've not noticed it myself, but that could happen using old versions or particular API calls</li>
+</ul>
+</p>
+<h3>State</h3>
+<p>
+Currently, the daemon is in beta testing, meaning that features are working, but heavy testing must be done.
+</p>
+
+<h3>Security</h3>
+<p>
+The daemon and its usage is in general <strong>INSECURE</strong>. Everyone, who can connect
+to the daemon can use the underlying office instances and thus
+has full access to the machine (with the daemon's user rights) and
+via socket communication to other machines accessible via sockets
+from the worker machine.
+</p>
+
+<p>
+All worker instances run under the same (= the daemon's userid) meaning
+that a menace user may spy other worker office instances.
+</p>
+<p>
+However, some simple limitations can be done.
+<ul>
+<li> Limiting the access to the daemon.<br>
+  You can use the connection string to limit the  access to a certain network interface.
+  E.g. using <i>socket,host=localhost,port=2002;urp</i>
+  means, that the daemon (and the underlying office instances) can only be accessed
+  from the same machine, where the daemon is running on.
+  One may easily extend the daemon source to limit access e.g. to certain hosts.
+  There is no user administration.
+  
+<li> User rights <br>
+  Create a special user for running the office instances. Limit the
+  user's rights to the absolute minimum.
+</ul>
+
+You should use this solution only in a trustworthy environments.
+
+<h2>Installation</h2>
+
+<h3> Open Office Server installation</h3>
+
+<p>
+<font size="4">The following informations are only needed if you want many users in parallel.<br/>
+For one user at a time using a simple queue, a simple Open Office installation suffice for the daemon.</font></p>
+
+The office daemon works on an arbitrary number of office user installations, which
+must have been created from the same network installation with a single system user.<br/>
+
+
+
+Ideally you create a new system user (e.g. oodaemon) therefor, but if you just
+want to try it out, you can use your normal system user.<br/>
+
+<font size="2"><p>( The following description is more or less copied from a mail by J. Barfurth
+in <i>dev@api.openoffice.org</i> ).</p></font>
+
+First do a new multi-user installation ( start
+
+ <i>$ setup -net</i> on linux/unix
+
+) from the downloaded installation set.
+
+
+Afterwards, create multiple single user installations by starting
+(use <i>01</i> instead of <i>XX</i>)<br/>
+
+<p>
+&nbsp;&nbsp;&nbsp;&nbsp; <i>$ setup -d /home/ooodaemon/ooServerInstance_XX</i>
+( on windows : <i>setup.exe -d C:/oodaemon/ooServerInstance_XX</i> )
+</p>
+from within the office/program directory. 
+After the setup run, edit <i>~/.sversionrc</i> file and replace
+<i>OpenOffice.org x.x.x</i> with <i>OpenOffice.org x.x.x_srvXX</i>.<br/>
+Repeat these steps with XX = 02, 03, ... . You need as many installations
+as you expect concurrent users. You may also start with a low number
+and add instances later on.
+</p>
+Afterwards, your .sversionrc file should look like :
+
+<i>
+<pre>
+[Versions]
+OpenOffice.org x.x srv01=file:///home/oood/ooServerInstance_01
+OpenOffice.org x.x srv02=file:///home/oood/ooServerInstance_02
+OpenOffice.org x.x srv03=file:///home/oood/ooServerInstance_03
+...
+
+( on windows : adjust the path to the correct form )
+</pre>
+</i>
+<h3>Daemon installation</h3>
+<ol>
+	<li>open <i>config/oodaemon-config.xml</i> and change :
+		<ul>
+			<li><i>open-office-install-path</i> : the open office installation path (ex in windows : <i>C:/Program Files/OpenOffice.org 2.2</i>)</li>
+			<li><i>user-installation</i> : users installations (ex : <i>file:///home/oood/ooServerInstance_01</i>)
+			<li>Ports in acceptors</li>
+		</ul>
+	</li>
+	<li><i>ANT</i> : configure <i>config/build.properties</i> 
+	</li>
+	<li><i>shell scripts</i> : configure scripts/env.* (.sh for linux and .bat for windows) .</li>
+</ol>
+
+<h2> Usage </h2>
+<h3> Usage patterns</h3>
+<p>
+You can now connect to the daemon with an arbitrary (Java, C++, python)
+client program in exactly the same way as you connect to a normal
+OpenOffice.<br/>
+
+The daemon delegates your request to one of its worker offices. For the
+time of usage, this worker office is exclusivly used by your client program.
+The end of usage is detected by the daemon through a breakdown
+of the interprocess bridge (which occurs, when the last
+reference is gone, the client explicitly disposes the remote bridge or
+the client process terminates).
+</p>
+
+<h3> How to use it </h3>
+<p>
+The basic usage of the daemon is to run it in background, then ask for information or stop it using
+another process called "admin".<br/>
+<font size="4">WARNING : The daemon is designed to be stopped using ant stop, killing it other ways may lead to uncontrolled server instances
+still running in background that would need to be killed manually.</font><br/><br/>
+You have several ways to launch it :
+<ul>
+	<li>
+		Ant :
+			<ul>
+				<li>
+					<i>ant run</i> : launch the daemon (it will use the jar file created during compilation).<br/>
+					<font size="4">WARNING : killing the ant process doesn't kill the daemon or open office server instances,
+					you must use <i>ant stop</i> to stop the daemon in a safe way. Use <i>ant -p</i> to get informations about targets.</font>
+				</li>
+				<li>
+					<i>ant stop</i> : stops the daemon running in background (admin instance).
+				</li>
+				<li>
+					<i>ant status</i> : gets informations about the running daemon (admin instance).
+				</li>
+			</ul>
+	</li>
+	<li>
+		Scripts : You can use the scripts that are in the <i>scripts</i> directory. A README file is there for informations about
+		each shell script.
+	</li>
+	<li>
+		Command line : Use scripts/_Daemon.* with <i>--help</i> option for more informations. 
+	</li>
+</ul>
+</p>
+
+<h3>Logging</h3>
+Log levels (increasing order) :<br/>
+
+You can write your own logger, if needed, by implementing Logger abstract class (see LoggerBasicImpl.java for an example).
+
+<table border="1">
+	<tr><td>NONE</td><td>no output, nothing, nada</td></tr>
+	<tr><td>ERROR</td><td>only errors and fatal errors will be displayed (stack traces not available)</td></tr>
+	<tr><td>INFO</td><td>informations about the execution process will be displayed</td></tr>
+	<tr><td>WARNING</td><td>warnings displayed added to previous level informations</td></tr>
+	<tr><td>DEBUG</td><td>debug information ( + exceptions stack traces )</td></tr>
+	<tr><td>DETAILED_DEBUG</td><td>debug + minor informations (exceptions during tries, sleep, etc...)</td></tr>
+</table>
+<h2>Advanced</h2>
+<h3> Performance</h3>
+All requests to the office are tunneled through the daemon process. This
+means an additional load on the server machine and a performance overhead
+for every request. This is typically neglectable when your call frequency
+is low (say less than 10 Calls/s), but becomes a significant overhead
+for higher call frequencies.
+
+<h3> Robustness </h3>
+Robustness and stability is certainly a keyfeature of a daemon. The following
+situations are currently handled:
+
+<ul>
+<li> Running out of workers <br />
+In case all worker instances are busy and the pool is empty, new clients will wait in a simple queue. 
+The order in which clients catch their worker in the ready pool is not determined, it is based on 
+Java's syncronization implementation.
+
+<li> A worker office crashes or deadlocks <br />
+Before a worker reenters the pool, it is checked, whether
+it is still responsive and it checks whether a deadlock
+with the solarmutex blocks the whole office. In case
+such a situation occured, the worker is killed and a fresh
+instance is started and added again to the pool.
+
+<br/>
+The check is currently quite rudimentary, it may
+be improved in future.
+</li>
+
+<li> Worker processes are restarted after a certain amount of client uses. This ensures,
+that an ill office instance will die sooner or later.
+</li>
+
+<li> Note: In case the daemon itself crashes (I am currently not aware of such a situation),
+           the worker instances don't
+           terminate, an admin needs to kill the instances by hand and restart the daemon.
+</li>
+
+</ul>
+
+<h2>License </h2>
+As you are used to when using OOo, this thing is LGPL.
+
+<h2>Feedback</h2>
+Please give feedback to the OpenOffice community through dev@api.openoffice.org mailing list.<br/>
+If you have questions or feedback for the first python version (oood) : <a href="mailto:JoergBudi@gmx.de">Joerg Budischewski</a><br/>
+If you have questions or feedback about this java port : <a href="mailto:oodaemon@extraserv.net">Jounayd Id Salah (aka jis)</a><br/>
+
+</body>
+</html>
